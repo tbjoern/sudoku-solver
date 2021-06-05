@@ -359,5 +359,4 @@ def main():
     args.command(parser, args)
 
 if __name__ == "__main__":
-    import cProfile
-    cProfile.run('main()')
+    main()
