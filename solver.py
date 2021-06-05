@@ -344,7 +344,7 @@ def main():
     import argparse
 
     parser = argparse.ArgumentParser()
-    subparsers = parser.add_subparsers()
+    subparsers = parser.add_subparsers(dest='cmd', required=True)
     single_sudoku_parser = subparsers.add_parser("single")
     single_sudoku_parser.add_argument("sudoku", type=Path)
     single_sudoku_parser.set_defaults(command=single)
