@@ -208,11 +208,11 @@ class Solver:
                 if f.value != 0:
                     self.put(Pos(i, j), f.value)
 
-    def step(self, recursive=False, level=0) -> bool:
+    def step(self, level=0) -> bool:
         """Finds the next best possible number. Returns False when board is full or dead end is reached"""
         def try_put(position, number):
             self.put(position, number)
-            if self.step(recursive=True, level=level):
+            if self.step(level=level):
                 return True
             else:
                 self.remove(position)
@@ -286,17 +286,13 @@ class Solver:
             logging.debug(f"{tab}No possible value for position {min_pos}")
             return False
 
-        if min_pos == Pos(-1, -1):
-            logging.debug(f"{tab}No possible numbers")
-            return False
-
         f = self.board.fields[min_pos.i][min_pos.j]
         possible_numbers = list(filter(lambda n: f.get_mark(n) == 0, range(1, 10)))
         logging.debug(f"{tab}Guessing position {min_pos} - numbers: {possible_numbers}")
         for number in possible_numbers:
             logging.debug(f"{tab}Guess {number} for {min_pos}")
             self.put(min_pos, number)
-            if self.step(recursive=True, level=level + 1):
+            if self.step(level=level + 1):
                 return True
             else:
                 self.remove(min_pos)
@@ -314,7 +310,7 @@ def single(parser, args):
 
     solver = Solver(board)
 
-    solver.step(recursive=True)
+    solver.step()
 
     print(board)
     print(board.verify())
@@ -325,7 +321,7 @@ def benchmark(parser, args):
     for board in boards:
         solver = Solver(board)
 
-        solver.step(recursive=True)
+        solver.step()
 
         # print(board)
 
