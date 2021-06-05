@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 from typing import List, Dict, Optional, Tuple
 from pathlib import Path
 import logging
+
 logging.basicConfig(level=logging.INFO)
 
 
@@ -221,6 +222,7 @@ class Solver:
         given the current numbers on the board.
         Then brute-force all the possibilities for that field.
         """
+
         def try_put(position, number):
             self.put(position, number)
             if self.step(level=level):
@@ -273,7 +275,6 @@ class Solver:
             for number, positions in counts.items():
                 if len(positions) == 1:
                     return try_put(positions[0], number)
-
 
         # find field with least possibilities
         # its sufficient to try out a single field, since every field has a single
@@ -340,11 +341,12 @@ def benchmark(parser, args):
     for board in boards:
         print(f"{board.name}: {board.verify()}")
 
+
 def main():
     import argparse
 
     parser = argparse.ArgumentParser()
-    subparsers = parser.add_subparsers(dest='cmd', required=True)
+    subparsers = parser.add_subparsers(dest="cmd", required=True)
     single_sudoku_parser = subparsers.add_parser("single")
     single_sudoku_parser.add_argument("sudoku", type=Path)
     single_sudoku_parser.set_defaults(command=single)
@@ -357,6 +359,7 @@ def main():
 
     args = parser.parse_args()
     args.command(parser, args)
+
 
 if __name__ == "__main__":
     main()
