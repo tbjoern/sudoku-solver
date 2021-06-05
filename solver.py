@@ -209,7 +209,18 @@ class Solver:
                     self.put(Pos(i, j), f.value)
 
     def step(self, level=0) -> bool:
-        """Finds the next best possible number. Returns False when board is full or dead end is reached"""
+        """Finds the next best possible number and then calls itself recursively until
+        sudoku is solved.
+
+        First, attempts to deduce the next number from the existing numbers.
+        For this, iterate all rows, columns and 3x3 sections. Try to find a number that
+        is both missing in the row/column/section and only has one available spot.
+
+        If no such number can be found, find the field with the least possibilities.
+        I.e. an empty field that has the least amount of numbers that can fit there,
+        given the current numbers on the board.
+        Then brute-force all the possibilities for that field.
+        """
         def try_put(position, number):
             self.put(position, number)
             if self.step(level=level):
