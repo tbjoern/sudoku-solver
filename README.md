@@ -4,7 +4,8 @@ Solves any sudoku via basic deduction and recursion.
 
 ## Installation
 
-Requires python 3.7 or later
+Requires python 3.7 or later.
+
 The `solver.py` file can be used standalone
 
 ## Usage
