@@ -335,7 +335,7 @@ def benchmark(parser, args):
 
         solver.step()
 
-        # print(board)
+        print(board)
 
     print("Results:")
     for board in boards:
