@@ -250,7 +250,6 @@ class Solver:
         if self.board.is_filled():
             return True
         tab = " " * level
-        logging.debug(self.board.verify(check_missing=False))
 
         # go through all 3x3, rows and cols
         for iterator, _ in chain(self.board.itercells(), self.board.iterrows(), self.board.itercols()):
