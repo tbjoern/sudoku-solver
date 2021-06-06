@@ -4,7 +4,7 @@ from pathlib import Path
 import logging
 from itertools import chain
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 
 
 @dataclass
@@ -200,15 +200,15 @@ class Solver:
         self.board.fields[i][j].value = value
 
         # mark all fields in 3x3
-        for f, pos in self.board.itercell(pos):
+        for f, _ in self.board.itercell(pos):
             f.put_mark(value)
 
         # mark all fields in row
-        for f, pos in self.board.iterrow(pos):
+        for f, _ in self.board.iterrow(pos):
             f.put_mark(value)
 
         # mark all fields in column
-        for f, pos in self.board.itercol(pos):
+        for f, _ in self.board.itercol(pos):
             f.put_mark(value)
 
     def remove(self, pos: Pos):
@@ -217,15 +217,15 @@ class Solver:
         self.board.fields[i][j].value = 0
 
         # mark all fields in 3x3
-        for f, pos in self.board.itercell(pos):
+        for f, _ in self.board.itercell(pos):
             f.del_mark(value)
 
         # mark all fields in row
-        for f, pos in self.board.iterrow(pos):
+        for f, _ in self.board.iterrow(pos):
             f.del_mark(value)
 
         # mark all fields in column
-        for f, pos in self.board.itercol(pos):
+        for f, _ in self.board.itercol(pos):
             f.del_mark(value)
 
     def setup(self):
@@ -250,6 +250,7 @@ class Solver:
         if self.board.is_filled():
             return True
         tab = " " * level
+        logging.debug(self.board.verify(check_missing=False))
 
         # go through all 3x3, rows and cols
         for iterator, _ in chain(self.board.itercells(), self.board.iterrows(), self.board.itercols()):
@@ -257,9 +258,9 @@ class Solver:
             counts: Dict[int, List[Pos]] = {k: [] for k in range(1, 10)}
             for f, pos in iterator:
                 if f.value == 0:
-                    for i in counts.keys():
-                        if f.get_mark(i) == 0:
-                            counts[i].append(pos)
+                    for number in counts.keys():
+                        if f.get_mark(number) == 0:
+                            counts[number].append(pos)
 
             # if there is a number that has only one spot to go into, write it
             for number, positions in counts.items():
