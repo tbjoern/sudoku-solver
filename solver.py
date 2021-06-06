@@ -1,9 +1,10 @@
 from dataclasses import dataclass, field
-from typing import List, Dict, Optional, Tuple
+from typing import List, Dict, Optional, Tuple, Generator
 from pathlib import Path
 import logging
+from itertools import chain
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 
 
 @dataclass
@@ -33,6 +34,15 @@ class Field:
 
 def make_fields():
     return [[Field() for _ in range(9)] for _ in range(9)]
+
+
+@dataclass
+class Pos:
+    i: int
+    j: int
+
+    def __iter__(self):
+        return iter((self.i, self.j))
 
 
 @dataclass
@@ -68,57 +78,89 @@ class Board:
 
         return "".join(tokens)
 
+    def itercell(self, pos: Pos) -> Generator[Tuple[Field, Pos], None, None]:
+        """Iterate through all fields of the 3x3 that pos is located in
+
+        Yields:
+            Field, Pos
+        """
+        i, j = pos
+        starti = int(i / 3) * 3
+        startj = int(j / 3) * 3
+
+        for x in range(starti, starti + 3):
+            for y in range(startj, startj + 3):
+                yield self.fields[x][y], Pos(x, y)
+
+    def itercells(self) -> Generator[Tuple[Generator[Tuple[Field, Pos], None, None], Pos], None, None]:
+        for i in (0, 3, 6):
+            for j in (0, 3, 6):
+                yield self.itercell(Pos(i, j)), Pos(i,j)
+
+    def iterrow(self, pos: Pos) -> Generator[Tuple[Field, Pos], None, None]:
+        i, j = pos
+        for y in range(9):
+            yield self.fields[i][y], Pos(i, y)
+
+    def iterrows(self) -> Generator[Tuple[Generator[Tuple[Field, Pos], None, None], int], None, None]:
+        for x in range(9):
+            yield self.iterrow(Pos(x, 0)), x
+
+    def itercol(self, pos: Pos) -> Generator[Tuple[Field, Pos], None, None]:
+        i, j = pos
+        for x in range(9):
+            yield self.fields[x][j], Pos(x, j)
+
+    def itercols(self) -> Generator[Tuple[Generator[Tuple[Field, Pos], None, None], int], None, None]:
+        for y in range(9):
+            yield self.itercol(Pos(0, y)), y
+
     def is_filled(self):
-        for row in self.fields:
-            for f in row:
+        for row, _ in self.iterrows():
+            for f, _ in row:
                 if f.value == 0:
                     return False
         return True
 
     def verify(self, check_missing=True) -> Optional[str]:
-        for starti in (0, 3, 6):
-            for startj in (0, 3, 6):
-                # check 3x3
-                checklist = {n + 1: False for n in range(9)}
-                for x in range(starti, starti + 3):
-                    for y in range(startj, startj + 3):
-                        if self.fields[x][y].value == 0:
-                            continue
-                        if checklist[self.fields[x][y].value]:
-                            return f"Duplicate number {self.fields[x][y].value} in 3x3 {starti},{startj}"
-                        checklist[self.fields[x][y].value] = True
-                if check_missing:
-                    for number, value in checklist.items():
-                        if not value:
-                            return f"3x3 at position {starti},{startj} is missing number {number}"
-
-        # mark all fields in row
-        for i in range(9):
-            checklist = {n + 1: False for n in range(9)}
-            for j in range(9):
-                if self.fields[i][j].value == 0:
+        for cell, cell_pos in self.itercells():
+            checklist = {n: False for n in range(1, 10)}
+            for f, pos in cell:
+                if f.value == 0:
                     continue
-                if checklist[self.fields[i][j].value]:
-                    return f"Duplicate number in row {i}"
-                checklist[self.fields[i][j].value] = True
+                if checklist[f.value]:
+                    return f"Duplicate number {f.value} in 3x3 {cell_pos}"
+                checklist[f.value] = True
             if check_missing:
                 for number, value in checklist.items():
                     if not value:
-                        return f"row {i} is missing number {number}"
+                        return f"3x3 at position {cell_pos} is missing number {number}"
 
-        # mark all fields in column
-        for j in range(9):
-            checklist = {n + 1: False for n in range(9)}
-            for i in range(9):
-                if self.fields[i][j].value == 0:
+        for row, row_nr in self.iterrows():
+            checklist = {n: False for n in range(1, 10)}
+            for f, pos in row:
+                if f.value == 0:
                     continue
-                if checklist[self.fields[i][j].value]:
-                    return f"Duplicate number in column {j}"
-                checklist[self.fields[i][j].value] = True
+                if checklist[f.value]:
+                    return f"Duplicate number {f.value} in row {row_nr}"
+                checklist[f.value] = True
             if check_missing:
                 for number, value in checklist.items():
                     if not value:
-                        return f"column {j} is missing number {number}"
+                        return f"row {row_nr} is missing number {number}"
+
+        for col, col_nr in self.itercols():
+            checklist = {n: False for n in range(1, 10)}
+            for f, pos in col:
+                if f.value == 0:
+                    continue
+                if checklist[f.value]:
+                    return f"Duplicate number {f.value} in column {col_nr}"
+                checklist[f.value] = True
+            if check_missing:
+                for number, value in checklist.items():
+                    if not value:
+                        return f"column {col_nr} is missing number {number}"
 
         return "valid"
 
@@ -148,15 +190,6 @@ def read_sudokus(filename: Path) -> List[Board]:
     return boards
 
 
-@dataclass
-class Pos:
-    i: int
-    j: int
-
-    def __iter__(self):
-        return iter((self.i, self.j))
-
-
 class Solver:
     def __init__(self, board):
         self.board = board
@@ -167,20 +200,16 @@ class Solver:
         self.board.fields[i][j].value = value
 
         # mark all fields in 3x3
-        starti = int(i / 3) * 3
-        startj = int(j / 3) * 3
-
-        for x in range(starti, starti + 3):
-            for y in range(startj, startj + 3):
-                self.board.fields[x][y].put_mark(value)
+        for f, pos in self.board.itercell(pos):
+            f.put_mark(value)
 
         # mark all fields in row
-        for y in range(0, 9):
-            self.board.fields[i][y].put_mark(value)
+        for f, pos in self.board.iterrow(pos):
+            f.put_mark(value)
 
         # mark all fields in column
-        for x in range(0, 9):
-            self.board.fields[x][j].put_mark(value)
+        for f, pos in self.board.itercol(pos):
+            f.put_mark(value)
 
     def remove(self, pos: Pos):
         i, j = pos
@@ -188,20 +217,16 @@ class Solver:
         self.board.fields[i][j].value = 0
 
         # mark all fields in 3x3
-        starti = int(i / 3) * 3
-        startj = int(j / 3) * 3
-
-        for x in range(starti, starti + 3):
-            for y in range(startj, startj + 3):
-                self.board.fields[x][y].del_mark(value)
+        for f, pos in self.board.itercell(pos):
+            f.del_mark(value)
 
         # mark all fields in row
-        for y in range(0, 9):
-            self.board.fields[i][y].del_mark(value)
+        for f, pos in self.board.iterrow(pos):
+            f.del_mark(value)
 
         # mark all fields in column
-        for x in range(0, 9):
-            self.board.fields[x][j].del_mark(value)
+        for f, pos in self.board.itercol(pos):
+            f.del_mark(value)
 
     def setup(self):
         for i, row in enumerate(self.board.fields):
@@ -222,59 +247,30 @@ class Solver:
         given the current numbers on the board.
         Then brute-force all the possibilities for that field.
         """
-
-        def try_put(position, number):
-            self.put(position, number)
-            if self.step(level=level):
-                return True
-            else:
-                self.remove(position)
-                return False
-
         if self.board.is_filled():
             return True
         tab = " " * level
 
-        # go through all 3x3
-        for starti in (0, 3, 6):
-            for startj in (0, 3, 6):
-                counts: Dict[int, List[Pos]] = {i + 1: [] for i in range(9)}
-                for x in range(starti, starti + 3):
-                    for y in range(startj, startj + 3):
-                        f = self.board.fields[x][y]
-                        if f.value == 0:
-                            for i in counts.keys():
-                                if f.get_mark(i) == 0:
-                                    counts[i].append(Pos(x, y))
-                for number, positions in counts.items():
-                    if len(positions) == 1:
-                        return try_put(positions[0], number)
-
-        # go thorugh all rows
-        for i in range(9):
-            counts = {k + 1: [] for k in range(9)}
-            for j in range(9):
-                f = self.board.fields[i][j]
+        # go through all 3x3, rows and cols
+        for iterator, _ in chain(self.board.itercells(), self.board.iterrows(), self.board.itercols()):
+            # count free positions for each number in this 3x3, row or col
+            counts: Dict[int, List[Pos]] = {k: [] for k in range(1, 10)}
+            for f, pos in iterator:
                 if f.value == 0:
-                    for n in counts.keys():
-                        if f.get_mark(n) == 0:
-                            counts[n].append(Pos(i, j))
+                    for i in counts.keys():
+                        if f.get_mark(i) == 0:
+                            counts[i].append(pos)
+
+            # if there is a number that has only one spot to go into, write it
             for number, positions in counts.items():
                 if len(positions) == 1:
-                    return try_put(positions[0], number)
+                    self.put(positions[0], number)
+                    if self.step(level=level):
+                        return True
+                    else:
+                        self.remove(positions[0])
+                        return False
 
-        # go thorugh all columns
-        for j in range(9):
-            counts = {k + 1: [] for k in range(9)}
-            for i in range(9):
-                f = self.board.fields[i][j]
-                if f.value == 0:
-                    for n in counts.keys():
-                        if f.get_mark(n) == 0:
-                            counts[n].append(Pos(i, j))
-            for number, positions in counts.items():
-                if len(positions) == 1:
-                    return try_put(positions[0], number)
 
         # find field with least possibilities
         # its sufficient to try out a single field, since every field has a single
@@ -282,24 +278,24 @@ class Solver:
         # (or a previous decision was wrong)
         min_free_numbers = 10
         min_pos = Pos(-1, -1)
-        for i in range(9):
-            for j in range(9):
-                f = self.board.fields[i][j]
+        min_field = None
+        for row, _ in self.board.iterrows():
+            for f, pos in row:
                 free_numbers = 9
                 if f.value == 0:
                     for number in range(1, 10):
                         if f.get_mark(number) != 0:
                             free_numbers -= 1
                     if free_numbers < min_free_numbers:
-                        min_pos = Pos(i, j)
+                        min_pos = pos
                         min_free_numbers = free_numbers
+                        min_field = f
 
         if min_free_numbers == 0:
             logging.debug(f"{tab}No possible value for position {min_pos}")
             return False
 
-        f = self.board.fields[min_pos.i][min_pos.j]
-        possible_numbers = list(filter(lambda n: f.get_mark(n) == 0, range(1, 10)))
+        possible_numbers = list(filter(lambda n: min_field.get_mark(n) == 0, range(1, 10)))
         logging.debug(f"{tab}Guessing position {min_pos} - numbers: {possible_numbers}")
         for number in possible_numbers:
             logging.debug(f"{tab}Guess {number} for {min_pos}")
